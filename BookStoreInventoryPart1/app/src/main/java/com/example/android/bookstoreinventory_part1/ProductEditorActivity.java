@@ -12,6 +12,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
+import android.telecom.PhoneAccount;
+import android.telephony.PhoneNumberFormattingTextWatcher;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -65,7 +68,7 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
 
     /**
      * OnTouchListener that listens for any user touches on a View, implying that they are modifying
-     * the view, and we change the mPetHasChanged boolean to true.
+     * the view, and we change the mProductHasChanged boolean to true.
      */
     private View.OnTouchListener mTouchListener = new View.OnTouchListener() {
         @Override
@@ -81,8 +84,8 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_product_editor);
 
-        // Examine the intent that was used to launch this activity
-        // in order to figure out if we are creating a new product or editing an existing one
+        // Examine the intent that was used to launch this activity in order to figure out
+        // if we are creating a new product or editing an existing one
 
         // Here is where we get the intent
         Intent intent = getIntent();
@@ -96,7 +99,7 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
         // If the intent DOES NOT contain a product content URI, then we know that we are creating a new product
         if (mCurrentProductUri == null) {
             // This is a new product, so change the app bar to say "add a product"
-            setTitle(getString(R.string.editor_activity_title_new_product));
+            setTitle(R.string.editor_activity_title_new_product);
 
             // Invalidate the options menu, so the "Delete" menu option can be hidden.
             // (It doesn't make sense to delete a product that hasn't been created yet.)
@@ -104,7 +107,7 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
 
         } else {
             // Otherwise this is an existing product, so change app bar to say "Edit Product"
-            setTitle(getString(R.string.editor_activity_title_edit_product));
+            setTitle(R.string.editor_activity_title_edit_product);
 
             // Initialize a loader to read the product data from the database
             // and display the current values in the editor
@@ -115,9 +118,10 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
         mProductNameEditText = (EditText) findViewById(R.id.edit_product_name);
         mProductPriceEditText = (EditText) findViewById(R.id.edit_product_price);
         mProductQuantityEditText = (EditText) findViewById(R.id.edit_product_quantity);
+        mSupplierPhoneNumberEditText = (EditText) findViewById(R.id.edit_supplier_phone_number);
         //Here is where the Spinner begins
         mSupplierNameSpinner = (Spinner) findViewById(R.id.spinner_supplier);
-        mSupplierPhoneNumberEditText = (EditText) findViewById(R.id.edit_supplier_phone_number);
+
 
         // Setup OnTouchListeners on all the input fields, so we can determine if the user
         // has touched or modified them. This will let us know if there are unsaved changes
@@ -382,10 +386,10 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
         String[] projection = {
                 BookEntry._ID,
                 BookEntry.COLUMN_PRODUCT_NAMES,
-                String.valueOf(BookEntry.COLUMN_PRODUCT_PRICES),
-                String.valueOf(BookEntry.COLUMN_PRODUCTS_QUANTITY),
-                String.valueOf(BookEntry.COLUMN_PRODUCT_SUPPLIER_NAME),
-                BookEntry.COLUMN_SUPPLIER_PHONE_NUMBER   };
+                BookEntry.COLUMN_PRODUCT_PRICES,
+                BookEntry.COLUMN_PRODUCTS_QUANTITY,
+                BookEntry.COLUMN_PRODUCT_SUPPLIER_NAME,
+                BookEntry.COLUMN_SUPPLIER_PHONE_NUMBER};
 
         // This loader will execute the ContentProvider's query method on a background thread
         return new CursorLoader(this,   // Parent activity context
@@ -411,26 +415,27 @@ public class ProductEditorActivity extends AppCompatActivity implements LoaderMa
         if (cursor.moveToFirst()) {
             // Find the columns of product attributes that we're interested in
             int nameColumnIndex = cursor.getColumnIndex(BookEntry.COLUMN_PRODUCT_NAMES);
-            int priceColumnIndex = cursor.getColumnIndex(String.valueOf(BookEntry.COLUMN_PRODUCT_PRICES));
-            int quantityColumnIndex = cursor.getColumnIndex(String.valueOf(BookEntry.COLUMN_PRODUCTS_QUANTITY));
-            int supplierNameColumnIndex = cursor.getColumnIndex(String.valueOf(BookEntry.COLUMN_PRODUCT_SUPPLIER_NAME));
+            int priceColumnIndex = cursor.getColumnIndex(BookEntry.COLUMN_PRODUCT_PRICES);
+            int quantityColumnIndex = cursor.getColumnIndex(BookEntry.COLUMN_PRODUCTS_QUANTITY);
+            int supplierNameColumnIndex = cursor.getColumnIndex(BookEntry.COLUMN_PRODUCT_SUPPLIER_NAME);
             int supplierNumberColumnIndex = cursor.getColumnIndex(BookEntry.COLUMN_SUPPLIER_PHONE_NUMBER);
 
             // Extract out the value from the Cursor for the given column index
             String name = cursor.getString(nameColumnIndex);
-            int price = cursor.getInt(priceColumnIndex);
+            float price = Float.parseFloat(cursor.getString(priceColumnIndex));
             int quantity = cursor.getInt(quantityColumnIndex);
             int supplierName = cursor.getInt(supplierNameColumnIndex);
-            int supplierNumber = cursor.getInt(supplierNumberColumnIndex);
+            String supplierNumber = cursor.getString(supplierNumberColumnIndex);
 
             // Update the views on the screen with the values from the database
             mProductNameEditText.setText(name);
-            mProductPriceEditText.setText(price);
-            mProductQuantityEditText.setText(quantity);
-            mSupplierPhoneNumberEditText.setText(Integer.toString(supplierNumber));
+            mProductPriceEditText.setText(Float.toString(price));
+            mProductQuantityEditText.setText(Integer.toString(quantity));
+            mSupplierPhoneNumberEditText.setText(supplierNumber);
 
             // SupplierName is a dropdown spinner, so map the constant value from the database
-            // into one of the dropdown options (0 is Unknown, 1 is SUPPLIER_1, 2 is Female).
+            // into one of the dropdown options (0 is Unknown supplier, 1 is SUPPLIER_1, 2 is SUPPLIER_2,
+            // 3 is SUPPLIER_3, 4 is SUPPLIER_4, 5 is SUPPLIER_5).
             // Then call setSelection() so that option is displayed on screen as the current selection.
             switch (supplierName) {
                 case BookEntry.SUPPLIER_1:
